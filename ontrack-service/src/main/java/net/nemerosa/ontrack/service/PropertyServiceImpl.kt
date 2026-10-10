@@ -22,6 +22,11 @@ import java.util.function.BiFunction
 import java.util.function.Predicate
 import kotlin.reflect.KClass
 
+/**
+ * The methods which only read properties never mark the transaction as rollback-only when they fail, for
+ * example on a stored value which cannot be decoded anymore. Their callers can then catch the failure and go on,
+ * like when a project's SCM configuration cannot be read, without failing the whole request when it commits.
+ */
 @Service
 @Transactional
 class PropertyServiceImpl(
@@ -58,6 +63,7 @@ class PropertyServiceImpl(
         return cache[propertyTypeName] as PropertyType<T>? ?: throw PropertyTypeNotFoundException(propertyTypeName)
     }
 
+    @Transactional(noRollbackFor = [Exception::class])
     override fun getProperties(entity: ProjectEntity): List<Property<*>> {
         // With all the existing properties...
         return propertyTypes
@@ -71,6 +77,7 @@ class PropertyServiceImpl(
                 .map { prop -> prop.editable(prop.type.canEdit(entity, securityService)) }
     }
 
+    @Transactional(noRollbackFor = [Exception::class])
     override fun <T> getProperty(entity: ProjectEntity, propertyTypeName: String): Property<T> {
         // Gets the property using its fully qualified type name
         val propertyType: PropertyType<T> = getPropertyTypeByName(propertyTypeName)
@@ -78,16 +85,19 @@ class PropertyServiceImpl(
         return getPropertyOrError(propertyType, entity)
     }
 
+    @Transactional(noRollbackFor = [Exception::class])
     override fun <T> getProperty(entity: ProjectEntity, propertyTypeClass: Class<out PropertyType<T>>): Property<T> {
         // The caller asks for the value: an unreadable value must fail, not look like a missing one
         val propertyType: PropertyType<T> = getPropertyTypeByName(propertyTypeClass.name)
         return getProperty(propertyType, entity)
     }
 
+    @Transactional(noRollbackFor = [Exception::class])
     override fun <T> getPropertyValue(entity: ProjectEntity, propertyTypeClass: Class<out PropertyType<T>>): T? {
         return getProperty(entity, propertyTypeClass).value
     }
 
+    @Transactional(noRollbackFor = [Exception::class])
     override fun <T> hasProperty(entity: ProjectEntity, propertyTypeClass: Class<out PropertyType<T>>): Boolean {
         return propertyRepository.hasProperty(propertyTypeClass.name, entity.projectEntityType, entity.id)
     }
@@ -225,6 +235,7 @@ class PropertyServiceImpl(
         return type.fromStorage(t.json)
     }
 
+    @Transactional(noRollbackFor = [Exception::class])
     override fun <T> searchWithPropertyValue(
             propertyTypeClass: Class<out PropertyType<T>>,
             entityLoader: BiFunction<ProjectEntityType, ID, ProjectEntity>,

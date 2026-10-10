@@ -5,14 +5,18 @@ import net.nemerosa.ontrack.extension.bitbucket.cloud.bitbucketCloudTestConfigMo
 import net.nemerosa.ontrack.extension.bitbucket.cloud.configuration.BitbucketCloudConfiguration
 import net.nemerosa.ontrack.extension.git.model.gitRepository
 import net.nemerosa.ontrack.extension.git.service.GitService
+import net.nemerosa.ontrack.extension.scm.service.SCMDetector
 import net.nemerosa.ontrack.job.orchestrator.JobOrchestratorSupplier
+import net.nemerosa.ontrack.model.structure.DecorationService
 import net.nemerosa.ontrack.model.structure.Project
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.jdbc.datasource.ConnectionHolder
 import org.springframework.transaction.support.TransactionSynchronizationManager
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -23,6 +27,12 @@ class BitbucketCloudUnreadableConfigurationIT : AbstractBitbucketCloudTestSuppor
 
     @Autowired
     private lateinit var gitService: GitService
+
+    @Autowired
+    private lateinit var scmDetector: SCMDetector
+
+    @Autowired
+    private lateinit var decorationService: DecorationService
 
     @Test
     fun `Properties of a project pointing to an unreadable configuration`() {
@@ -73,6 +83,66 @@ class BitbucketCloudUnreadableConfigurationIT : AbstractBitbucketCloudTestSuppor
                         it.type is BitbucketCloudProjectConfigurationPropertyType
                     }
                     assertTrue(property.hasError, "Property has an error")
+                    assertTransactionNotRollbackOnly()
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `Project page fields of a project pointing to an unreadable configuration`() {
+        withDisabledConfigurationTest {
+            asAdmin {
+                project {
+                    withUnreadableBitbucketCloudConfiguration()
+                    branch("main") {
+                        build("1")
+                    }
+                    run(
+                        """
+                            {
+                                project(id: $id) {
+                                    decorations {
+                                        decorationType
+                                        error
+                                    }
+                                    branches {
+                                        displayName
+                                        decorations {
+                                            decorationType
+                                        }
+                                    }
+                                }
+                            }
+                        """
+                    ) { data ->
+                        val project = data.path("project")
+                        assertEquals("main", project.path("branches").first().path("displayName").asText())
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `SCM, Git configuration and decorations of a project pointing to an unreadable configuration`() {
+        withDisabledConfigurationTest {
+            asAdmin {
+                project {
+                    withUnreadableBitbucketCloudConfiguration()
+
+                    assertNull(scmDetector.getSCM(this), "Unreadable SCM is ignored")
+                    assertTransactionNotRollbackOnly()
+
+                    assertNull(gitService.getProjectConfiguration(this), "Unreadable Git configuration is ignored")
+                    assertTransactionNotRollbackOnly()
+
+                    val decoration = decorationService.getDecorations(this).find {
+                        it.decorationType == BitbucketCloudProjectDecorator::class.java.name
+                    }
+                    assertNotNull(decoration, "Decoration in error") {
+                        assertNotNull(it.error, "Decoration has an error")
+                    }
                     assertTransactionNotRollbackOnly()
                 }
             }

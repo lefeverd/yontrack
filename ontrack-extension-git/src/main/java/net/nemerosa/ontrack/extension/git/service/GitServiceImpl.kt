@@ -71,7 +71,7 @@ class GitServiceImpl(
     override fun forEachConfiguredProject(consumer: BiConsumer<Project, GitConfiguration>) {
         structureService.projectList
             .forEach { project ->
-                val configuration = getReadableProjectConfiguration(project)
+                val configuration = getProjectConfiguration(project)
                 if (configuration != null) {
                     consumer.accept(project, configuration)
                 }
@@ -80,7 +80,7 @@ class GitServiceImpl(
 
     override fun forEachConfiguredBranch(consumer: BiConsumer<Branch, GitBranchConfiguration>) {
         for (project in structureService.projectList) {
-            if (getReadableProjectConfiguration(project) != null) {
+            if (getProjectConfiguration(project) != null) {
                 forEachConfiguredBranchInProject(project, consumer::accept)
             }
         }
@@ -98,18 +98,6 @@ class GitServiceImpl(
                 }
             }
     }
-
-    /**
-     * Gets the Git configuration of a project when looping over projects, a configuration which cannot
-     * be read being skipped, so that the other projects are still processed.
-     */
-    private fun getReadableProjectConfiguration(project: Project): GitConfiguration? =
-        try {
-            nestedTransactionTemplate.execute { getProjectConfiguration(project) }
-        } catch (any: Exception) {
-            logger.warn("Cannot read the Git configuration of project ${project.name}, skipping it: ${any.message}")
-            null
-        }
 
     /**
      * Gets the Git configuration of a branch when looping over branches, a configuration which cannot
@@ -293,9 +281,22 @@ class GitServiceImpl(
             configurator.isProjectConfigured(project)
         }
 
+    /**
+     * A Git configuration which cannot be read, like a project property pointing to a configuration
+     * stored by an older version, is considered as not set: the project is then not configured for Git,
+     * instead of failing everything which looks for it (decorations, branch models, pull requests, ...).
+     * The property itself is displayed with its error on the project, to be fixed there.
+     */
     override fun getProjectConfiguration(project: Project): GitConfiguration? {
         return gitConfigurators.asSequence()
-            .mapNotNull { c -> c.getConfiguration(project) }
+            .mapNotNull { c ->
+                try {
+                    c.getConfiguration(project)
+                } catch (any: Exception) {
+                    logger.warn("Cannot read the Git configuration of project ${project.name} for ${c::class.java.simpleName}, ignoring it: ${any.message}")
+                    null
+                }
+            }
             .firstOrNull()
     }
 
