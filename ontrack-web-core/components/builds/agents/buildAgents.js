@@ -55,6 +55,18 @@ export const hasAgentsSection = (build) =>
     !!build?.assistedChange?.assisted || hasAgentActions(build?.agentActionsProbe)
 
 /**
+ * Adds the *Agents* section at the end of a build page layout (#2053): full width, below the lowest
+ * of the other sections, which stay where they are.
+ *
+ * @param layout Grid layout of the other sections (`{i, x, y, w, h}`)
+ * @param height Height of the *Agents* section
+ */
+export const withAgentsSection = (layout, height) => [
+    ...layout,
+    {i: "agents", x: 0, y: Math.max(0, ...layout.map(it => it.y + it.h)), w: 12, h: height},
+]
+
+/**
  * The content of the *Agents* section: the assisted change of the build, with the build it was
  * computed from, and a page of the actions by agents, newest first.
  */

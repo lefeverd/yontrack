@@ -58,6 +58,11 @@ test('a build assisted in git and validated by an agent shows both lists in its 
     await expect(validation).toContainText(`Claude, owned by`)
     await expect(validation.getByRole('link', {name: 'Agent session'})).toHaveAttribute('href', session.link)
     await expect(actions.locator('tr', {hasText: personStamp.name})).toHaveCount(0)
+
+    // At the end of the page, below the other sections (#2053)
+    const agentsBox = await page.getByTestId('agents').boundingBox()
+    const notificationsBox = await page.getByTestId('notifications').boundingBox()
+    expect(agentsBox.y).toBeGreaterThanOrEqual(notificationsBox.y + notificationsBox.height)
 })
 
 test('a build of persons only has no Agents section', async ({page, ontrack}) => {

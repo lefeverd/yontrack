@@ -3,6 +3,7 @@ import {
     assistedCommitsText,
     hasAgentActions,
     hasAgentsSection,
+    withAgentsSection,
 } from "@components/builds/agents/buildAgents"
 
 const assisted = {
@@ -87,5 +88,34 @@ describe('Commits of an assisted change', () => {
     it('says nothing when the CI gave no counts', () => {
         expect(assistedCommitsText({...assisted, basis: "SET_BY_CI", assistedCommits: null, totalCommits: null})).toBeNull()
         expect(assistedCommitsText(null)).toBeNull()
+    })
+})
+
+describe('Place of the Agents section on the build page', () => {
+
+    const layout = [
+        {i: "promotions", x: 0, y: 0, w: 5, h: 6},
+        {i: "environments", x: 0, y: 6, w: 5, h: 4},
+        {i: "validations", x: 5, y: 0, w: 7, h: 15},
+        {i: "using", x: 0, y: 15, w: 6, h: 9},
+        {i: "usedBy", x: 6, y: 24, w: 6, h: 9},
+        {i: "notifications", x: 0, y: 33, w: 12, h: 9},
+    ]
+
+    it('puts the section at the end of the page, full width, below the lowest section', () => {
+        const result = withAgentsSection(layout, 12)
+        expect(result[result.length - 1]).toEqual({i: "agents", x: 0, y: 42, w: 12, h: 12})
+    })
+
+    it('leaves the other sections where they are', () => {
+        expect(withAgentsSection(layout, 12).slice(0, -1)).toEqual(layout)
+    })
+
+    it('goes below the lowest section, whatever the order of the layout', () => {
+        const result = withAgentsSection([
+            {i: "validations", x: 6, y: 0, w: 8, h: 30},
+            {i: "notifications", x: 0, y: 18, w: 12, h: 9},
+        ], 12)
+        expect(result[result.length - 1]).toEqual({i: "agents", x: 0, y: 30, w: 12, h: 12})
     })
 })
