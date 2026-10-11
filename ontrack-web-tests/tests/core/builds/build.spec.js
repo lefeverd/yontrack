@@ -3,6 +3,7 @@ const {BuildPage} = require("../builds/BuildPage");
 const {BranchPage} = require("../branches/branch");
 const {test} = require("../../fixtures/connection");
 const {generate} = require("@ontrack/utils");
+const {expect} = require("@playwright/test");
 
 test('build page', async ({page, ontrack}) => {
     // Provisioning
@@ -14,6 +15,34 @@ test('build page', async ({page, ontrack}) => {
     // Navigating to the build
     const buildPage = new BuildPage(page, build)
     await buildPage.goTo()
+})
+
+test('promotions and environments fill the height of the validations on the build page', async ({page, ontrack}) => {
+    const project = await ontrack.createProject()
+    const branch = await project.createBranch()
+    const build = await branch.createBuild()
+
+    await login(page, ontrack)
+    const buildPage = new BuildPage(page, build)
+    await buildPage.goTo()
+    await expect(page.getByTestId('environments')).toBeVisible()
+
+    // The left column - promotions above environments - is as tall as the validations next to
+    // it, and shared half and half (#2054). Polled: the grid animates its cells into place.
+    const boxes = async () => ({
+        promotions: await page.getByTestId('promotions').boundingBox(),
+        environments: await page.getByTestId('environments').boundingBox(),
+        validations: await page.getByTestId('validations').boundingBox(),
+    })
+    const bottom = (box) => box.y + box.height
+    await expect.poll(async () => {
+        const {promotions, environments, validations} = await boxes()
+        return Math.max(
+            Math.abs(promotions.y - validations.y),
+            Math.abs(bottom(environments) - bottom(validations)),
+            Math.abs(promotions.height - environments.height),
+        )
+    }).toBeLessThanOrEqual(2)
 })
 
 test('build display URL', async ({page, ontrack}) => {

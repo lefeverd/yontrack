@@ -10,6 +10,7 @@ import GridTableContextProvider from "@components/grid/GridTableContext";
 import GridTable from "@components/grid/GridTable";
 import BuildContentAgents from "@components/builds/BuildContentAgents";
 import {hasAgentsSection, withAgentsSection} from "@components/builds/agents/buildAgents";
+import {buildPageLayout} from "@components/builds/buildPageLayout";
 
 /**
  * Height of the *Agents* section, below the others when shown.
@@ -20,28 +21,7 @@ export default function BuildContent({build}) {
 
     const user = useContext(UserContext)
 
-    let defaultLayout
-    if (user.authorizations.environment?.view) {
-        defaultLayout = [
-            {i: "promotions", x: 0, y: 0, w: 5, h: 6},
-            // Since #1794 the cell is a single wrapping strip of chips, not a timeline of
-            // expandable rows, so it needs a fraction of the height it used to. The grid compacts
-            // vertically, so the rows below close the gap on their own.
-            {i: "environments", x: 0, y: 6, w: 5, h: 4},
-            {i: "validations", x: 5, y: 0, w: 7, h: 15},
-            {i: "using", x: 0, y: 15, w: 6, h: 9},
-            {i: "usedBy", x: 6, y: 24, w: 6, h: 9},
-            {i: "notifications", x: 0, y: 33, w: 12, h: 9},
-        ]
-    } else {
-        defaultLayout = [
-            {i: "promotions", x: 0, y: 0, w: 4, h: 9},
-            {i: "validations", x: 6, y: 0, w: 8, h: 9},
-            {i: "using", x: 0, y: 9, w: 6, h: 9},
-            {i: "usedBy", x: 6, y: 9, w: 6, h: 9},
-            {i: "notifications", x: 0, y: 18, w: 12, h: 9},
-        ]
-    }
+    let defaultLayout = buildPageLayout({environments: !!user.authorizations.environment?.view})
 
     // What agents had to do with this build (#2033), at the end of the page (#2053), when there is
     // something to show. Both the layout and the items are computed from the build, which is already
